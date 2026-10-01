@@ -1,0 +1,164 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.26
+   Compiling libc v0.2.189
+   Compiling serde_core v1.0.229
+   Compiling cfg-if v1.0.5
+   Compiling zerocopy v0.8.59
+   Compiling syn v2.0.119
+   Compiling syn v3.0.6
+   Compiling zerocopy-derive v0.8.59
+   Compiling find-msvc-tools v0.1.14
+   Compiling shlex v2.0.1
+   Compiling zmij v1.0.23
+   Compiling serde v1.0.229
+   Compiling cc v1.5.1
+   Compiling serde_derive v1.0.229
+   Compiling serde_json v1.0.151
+   Compiling autocfg v1.5.1
+   Compiling rand_core v0.10.1
+   Compiling half v2.7.1
+   Compiling num-traits v0.2.19
+   Compiling alloca v0.4.0
+   Compiling itoa v1.0.18
+   Compiling either v1.18.0
+   Compiling getrandom v0.4.3
+   Compiling regex-syntax v0.8.11
+   Compiling ciborium-io v0.2.2
+   Compiling anstyle v1.0.14
+   Compiling memchr v2.8.3
+   Compiling clap_lex v1.1.1
+   Compiling clap_builder v4.6.7
+   Compiling regex-automata v0.4.18
+   Compiling ciborium-ll v0.2.2
+   Compiling itertools v0.13.0
+   Compiling cast v0.3.0
+   Compiling cpufeatures v0.3.1
+   Compiling same-file v1.0.6
+   Compiling ryu-rewrite v1.0.23 (/tmp/ryu-pr-equivalence-20261001/closure-test)
+   Compiling walkdir v2.5.0
+   Compiling chacha20 v0.10.2
+   Compiling criterion-plot v0.8.2
+   Compiling ciborium v0.2.2
+   Compiling tinytemplate v1.2.1
+   Compiling regex v1.13.1
+   Compiling clap v4.6.7
+   Compiling page_size v0.6.0
+   Compiling oorandom v11.1.5
+   Compiling anes v0.1.6
+   Compiling criterion v0.8.2
+   Compiling rand v0.10.3
+   Compiling rand_xorshift v0.5.0
+   Compiling num_cpus v1.17.0
+    Finished `release` profile [optimized] target(s) in 32.09s
+     Running unittests src/lib.rs (target/release/deps/ryu-82ffc16a5b0ae5e5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/common_test.rs (target/release/deps/common_test-e0c927ef11d15a2d)
+
+running 6 tests
+test test_ceil_log2_pow5 ... ok
+test test_decimal_length9 ... ok
+test test_double_to_bits ... ok
+test test_float_to_bits ... ok
+test test_log10_pow2 ... ok
+test test_log10_pow5 ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/d2s_intrinsics_test.rs (target/release/deps/d2s_intrinsics_test-74141f82f0cc19c3)
+
+running 1 test
+test test_pow5_factor ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/d2s_table_test.rs (target/release/deps/d2s_table_test-1a05ef31cdd4b9f2)
+
+running 2 tests
+test test_compute_inv_pow5 ... ok
+test test_compute_pow5 ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/d2s_test.rs (target/release/deps/d2s_test-35fcc6aa88554f04)
+
+running 12 tests
+test test_basic ... ok
+test test_looks_like_pow5 ... ok
+test test_min_and_max ... ok
+test test_min_max_shift ... ok
+test test_lots_of_trailing_zeros ... ok
+test test_output_length ... ok
+test test_regression ... ok
+test test_ryu ... ok
+test test_small_integers ... ok
+test test_switch_to_subnormal ... ok
+test test_random ... ok
+test test_non_finite ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests/exhaustive.rs (target/release/deps/exhaustive-c811e909b7c860c1)
+
+running 1 test
+test test_exhaustive ... ignored, requires cfg(exhaustive)
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/f2s_test.rs (target/release/deps/f2s_test-984c5e64018d8b23)
+
+running 12 tests
+test test_basic ... ok
+test test_boundary_round_even ... ok
+test test_exact_value_round_even ... ok
+test test_looks_like_pow5 ... ok
+test test_lots_of_trailing_zeros ... ok
+test test_min_and_max ... ok
+test test_output_length ... ok
+test test_regression ... ok
+test test_ryu ... ok
+test test_switch_to_subnormal ... ok
+test test_random ... ok
+test test_non_finite ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests/s2d_test.rs (target/release/deps/s2d_test-9a76d06c13f6c378)
+
+running 9 tests
+test test_bad_input ... ok
+test test_basic ... ok
+test test_issue157 ... ok
+test test_issue173 ... ok
+test test_mantissa_rounding_overflow ... ok
+test test_overflow ... ok
+test test_min_max ... ok
+test test_table_size_denormal ... ok
+test test_underflow ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/s2f_test.rs (target/release/deps/s2f_test-f1c61c5f83b30bc7)
+
+running 4 tests
+test test_basic ... ok
+test test_mantissa_rounding_overflow ... ok
+test test_min_max ... ok
+test test_trailing_zeros ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ryu
+
+running 4 tests
+test src/lib.rs - (line 24) ... ok
+test src/buffer/mod.rs - buffer::Buffer (line 14) ... ok
+test src/pretty/mod.rs - pretty::format32 (line 155) ... ok
+test src/pretty/mod.rs - pretty::format64 (line 49) ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+

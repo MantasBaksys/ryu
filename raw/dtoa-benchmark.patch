@@ -1,0 +1,192 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 441399f..02058eb 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -15,7 +15,10 @@ dtoa = "1.0.10"
+ fpfmt = { path = "fpfmt" }
+ lexical-core = "1"
+ rand = "0.10"
+-ryu = "1.0.21"
++ryu = { package = "ryu-upstream", path = "../upstream" }
++ryu_pf = { package = "ryu-pointer-free", path = "../pointer-free" }
++ryu_opt = { package = "ryu-optimized", path = "../optimized" }
++ryu_closures = { package = "ryu-closures", path = "../closure-benchmark" }
+ teju = "0.1.1"
+ zmij = "1.0.0"
+ 
+diff --git a/src/args.rs b/src/args.rs
+index fad0bf7..fbe40e4 100644
+--- a/src/args.rs
++++ b/src/args.rs
+@@ -4,6 +4,7 @@ use std::env;
+ pub struct Args {
+     pub benchmark: Vec<(&'static str, Type)>,
+     pub unpredictable: bool,
++    pub interleave: bool,
+ }
+ 
+ pub enum Type {
+@@ -17,12 +18,17 @@ pub fn parse() -> Result<Args> {
+ 
+     let mut benchmark = Vec::new();
+     let mut unpredictable = false;
++    let mut interleave = false;
+     'args: for arg in args {
+         if let Some(arg) = arg.to_str() {
+             if arg == "--unpredictable" {
+                 unpredictable = true;
+                 continue;
+             }
++            if arg == "--interleave" {
++                interleave = true;
++                continue;
++            }
+             let (lib, ty) = match arg.split_once(':') {
+                 Some((lib, ty)) => (lib, Some(ty)),
+                 None => (arg, None),
+@@ -70,8 +76,12 @@ pub fn parse() -> Result<Args> {
+         }
+     }
+ 
++    if interleave && unpredictable {
++        bail!("interleaving supports only the standard predictable benchmark");
++    }
+     Ok(Args {
+         benchmark,
+         unpredictable,
++        interleave,
+     })
+ }
+diff --git a/src/data.rs b/src/data.rs
+index 16f3281..30d4652 100644
+--- a/src/data.rs
++++ b/src/data.rs
+@@ -75,7 +75,10 @@ where
+         let float = T::from_bits(bits);
+         if float.is_finite() {
+             // Convert to string with limited digits, and convert it back.
+-            return format!("{float:.prec$e}").parse().unwrap();
++            let rounded: T = format!("{float:.prec$e}").parse().unwrap();
++            if rounded.is_finite() {
++                return rounded;
++            }
+         }
+     }
+ }
+diff --git a/src/main.rs b/src/main.rs
+index 9065213..9329df6 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -7,6 +7,8 @@
+ 
+ mod args;
+ mod data;
++#[cfg(test)]
++mod ryu_agreement;
+ mod traits;
+ #[cfg(test)]
+ mod verify;
+@@ -71,6 +73,21 @@ static IMPLS: &[Impl] = &[
+         f32: Some(|value, f| f(ryu::Buffer::new().format_finite(value))),
+         f64: Some(|value, f| f(ryu::Buffer::new().format_finite(value))),
+     },
++    Impl {
++        name: "ryu-pf",
++        f32: Some(|value, f| f(ryu_pf::Buffer::new().format_finite(value))),
++        f64: Some(|value, f| f(ryu_pf::Buffer::new().format_finite(value))),
++    },
++    Impl {
++        name: "ryu-opt",
++        f32: Some(|value, f| f(ryu_opt::Buffer::new().format_finite(value))),
++        f64: Some(|value, f| f(ryu_opt::Buffer::new().format_finite(value))),
++    },
++    Impl {
++        name: "ryu-closures",
++        f32: Some(|value, f| f(ryu_closures::Buffer::new().format_finite(value))),
++        f64: Some(|value, f| f(ryu_closures::Buffer::new().format_finite(value))),
++    },
+     Impl {
+         name: "lexical",
+         f32: Some(|value, f| {
+@@ -154,6 +171,33 @@ where
+ fn main() -> Result<()> {
+     let args = args::parse()?;
+     let data = Data::random(COUNT, args.unpredictable);
++    if args.interleave {
++        let f32_impls: Vec<_> = args
++            .benchmark
++            .iter()
++            .filter_map(|(name, ty)| {
++                if let Type::F32(f) = ty {
++                    Some((*name, *f))
++                } else {
++                    None
++                }
++            })
++            .collect();
++        let f64_impls: Vec<_> = args
++            .benchmark
++            .iter()
++            .filter_map(|(name, ty)| {
++                if let Type::F64(f) = ty {
++                    Some((*name, *f))
++                } else {
++                    None
++                }
++            })
++            .collect();
++        measure_interleaved(&data.f32, &f32_impls);
++        measure_interleaved(&data.f64, &f64_impls);
++        return Ok(());
++    }
+     let mut prev_name = None;
+ 
+     for (name, ty) in args.benchmark {
+@@ -169,3 +213,22 @@ fn main() -> Result<()> {
+ 
+     Ok(())
+ }
++
++fn measure_interleaved<T, const N: usize>(
++    data: &DataForType<T, N>,
++    implementations: &[(&str, F<T>)],
++) where
++    T: traits::Float,
++{
++    for (index, values) in data.by_precision.iter().enumerate() {
++        for &(name, formatter) in implementations {
++            let duration = measure_once(values, formatter);
++            println!(
++                "measurement,{name},{},{},{:.2}",
++                any::type_name::<T>(),
++                index + 1,
++                duration.as_secs_f64() * 1e9 / (PASSES * data.count) as f64,
++            );
++        }
++    }
++}
+diff --git a/src/verify.rs b/src/verify.rs
+index 418b8b4..534e4ff 100644
+--- a/src/verify.rs
++++ b/src/verify.rs
+@@ -7,14 +7,12 @@ fn verify_value(value: f64, f: crate::F<f64>) -> usize {
+     let mut len = 0;
+ 
+     f(value, &mut |actual| {
+-        let Ok(roundtrip) = actual.parse::<f64>() else {
+-            eprintln!("Error: failed to parse {actual}");
+-            return;
+-        };
+-
+-        if value != roundtrip {
+-            eprintln!("Error: roundtrip fail {value} -> {actual:?} -> {roundtrip}");
+-        }
++        let roundtrip = actual.parse::<f64>().expect("formatted output must parse");
++        assert_eq!(
++            value.to_bits(),
++            roundtrip.to_bits(),
++            "roundtrip fail {value} -> {actual:?} -> {roundtrip}"
++        );
+ 
+         len = actual.len();
+     });

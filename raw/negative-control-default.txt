@@ -1,0 +1,14 @@
+     Locking 1 package to latest compatible version
+      Adding ryu-upstream v1.0.23 (/tmp/ryu-pr-equivalence-20261001/upstream)
+   Compiling ryu v1.0.23 (/tmp/ryu-pr-equivalence-20261001/pr-review)
+   Compiling ryu-upstream v1.0.23 (/tmp/ryu-pr-equivalence-20261001/upstream)
+   Compiling ryu-rewrite v1.0.23 (/tmp/ryu-pr-equivalence-20261001/closure-test)
+   Compiling ryu-closure-agreement v0.0.0 (/tmp/ryu-pr-equivalence-20261001/closure-agreement)
+    Finished `release` profile [optimized] target(s) in 0.64s
+     Running unittests src/main.rs (target/release/deps/ryu_closure_agreement-72f1fb55371a9d0a)
+
+running 1 test
+test tests::negative_control - should panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

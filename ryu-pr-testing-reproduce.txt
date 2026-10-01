@@ -1,0 +1,65 @@
+Ryu PR testing reproduction
+
+Equivalence bundle: ryu-pr-equivalence-results.tar.gz
+Extract into an empty working directory under /tmp. The archive contains:
+  closure-test/       exact PR library source (package renamed ryu-rewrite)
+  upstream/           pinned upstream library (package renamed ryu-upstream)
+  pr-review/          optimized macro reference
+  closure-agreement/  byte equality + finite round-trip harness
+  results/            raw test logs, JSON case counts and source hashes
+  draft/              exact latest-base PR tree and generated test lockfile
+
+Only Cargo package names differ from the reviewed candidates. Every Rust
+library source was checked byte-for-byte against the approved candidate and
+pinned upstream before accepting these results.
+
+From the extracted archive root, with Rust/Cargo 1.97.1 on PATH:
+
+  export CARGO_TARGET_DIR=/tmp/ryu-pr-reproduction-target
+  cargo test --release --locked --manifest-path closure-agreement/Cargo.toml
+  cargo run --release --locked --manifest-path closure-agreement/Cargo.toml
+  cargo test --release --locked --manifest-path closure-agreement/Cargo.toml --features small
+  cargo run --release --locked --manifest-path closure-agreement/Cargo.toml --features small
+  cargo test --release --locked --manifest-path closure-test/Cargo.toml
+  cargo test --release --locked --manifest-path closure-test/Cargo.toml --features small
+  cargo test --release --locked --manifest-path draft/Cargo.toml
+  cargo test --release --locked --manifest-path draft/Cargo.toml --features small
+
+The harness has no registry dependencies. Candidate integration tests use
+the original dev dependencies pinned in the included lockfile.
+Failure is reported by a nonzero exit, with the input's raw bits and reference
+name on byte mismatches. No success JSON is written after a mismatch.
+
+Performance bundle: ryu-closures-codespace-results.tar.gz
+Extract separately. It contains dtoa-benchmark/, all required local path
+dependencies, run_closure_codespace.py and raw results/.
+
+  export CARGO_TARGET_DIR="$PWD/target"
+  export CARGO_BUILD_JOBS=2
+  export RUSTFLAGS="-Ctarget-cpu=native"
+  cargo build --release --locked --manifest-path dtoa-benchmark/Cargo.toml
+
+The runner resumes retained measurements only if provenance matches. For a
+new measurement, first move the extracted results directory to a distinct
+archive name, then run:
+
+  python3 run_closure_codespace.py
+
+The runner requires Linux CPUs 0, 2 and 3 and assumes CPU 3 is CPU 2's SMT
+sibling; check the topology before reproduction. It checks quiet windows
+before timing and rejects competing activity, never slow formatter results.
+Its final summary compares paired rounds; the graph plots per-cell medians.
+
+Plot sources and data:
+  plot_dtoa_closures.py
+  ryu-dtoa-pr-data.json
+  ryu-dtoa-pr.{png,svg,pdf,tex}
+
+The plotting script's WORK path points at the original disposable local
+workspace. To render elsewhere, set WORK to the extracted performance bundle
+root, place the script beside the desired outputs, and run:
+
+  python3 plot_dtoa_closures.py --prefix closure-codespace --rounds 12 --output ryu-dtoa-pr
+
+No tests in this bundle constitute a complete formal reproof or exhaustive
+all-float equivalence check.

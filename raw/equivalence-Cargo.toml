@@ -1,0 +1,12 @@
+[package]
+name = "ryu-closure-agreement"
+version = "0.0.0"
+edition = "2021"
+
+[features]
+small = ["ryu_upstream/small", "ryu_before/small", "ryu_after/small"]
+
+[dependencies]
+ryu_upstream = { package = "ryu-upstream", path = "../upstream" }
+ryu_before = { package = "ryu", path = "../pr-review" }
+ryu_after = { package = "ryu-rewrite", path = "../closure-test" }

@@ -1,0 +1,3 @@
+   Compiling ryu-closure-agreement v0.0.0 (/tmp/ryu-pr-equivalence-20261001/closure-agreement)
+    Finished `release` profile [optimized] target(s) in 0.21s
+     Running `target/release/ryu-closure-agreement`
