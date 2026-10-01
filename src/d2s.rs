@@ -199,7 +199,7 @@ pub fn d2d(ieee_mantissa: u64, ieee_exponent: u32) -> FloatingDecimal64 {
                 // mp = mv + 2, so it always has at least one trailing 0 bit.
                 vp -= 1;
             }
-        } else if q < 63 {
+        } else if q < 55 {
             // TODO(ulfjack): Use a tighter bound here.
             // We want to know if the full product has at least q trailing zeros.
             // We need to compute min(p2(mv), p5(mv) - e2) >= q
@@ -215,6 +215,43 @@ pub fn d2d(ieee_mantissa: u64, ieee_exponent: u32) -> FloatingDecimal64 {
     // On average, we remove ~2 digits.
     let output = if vm_is_trailing_zeros || vr_is_trailing_zeros {
         // General case, which happens rarely (~0.7%).
+        // Chunked digit removal, licensed by `d2d_loop0.spec`, which gives the
+        // whole post-state as a function of the pre-state and the iteration
+        // count k:
+        //     vr/10^k, vp/10^k, vm/10^k,
+        //     vmtz && vm % 10^k == 0,
+        //     vrtz && AllZeroBelow(lrd, vr, k) = vrtz && lrd == 0 && vr % 10^(k-1) == 0,
+        //     removed + k,
+        //     lrd = LastDigit(lrd, vr, k) = vr / 10^(k-1) % 10.
+        // The per-step guard `forall u < k, vm/10^(u+1) < vp/10^(u+1)` collapses
+        // to the single test `vm/10^k < vp/10^k`, because floor(x/10^j) is
+        // monotone: once vp and vm agree at some j they agree at every larger
+        // one. So one comparison licenses a whole k-digit chunk.
+        let mut remove_chunk = {
+            #[inline(always)]
+            |digits: u32| {
+                let pow = 10u64.pow(digits);
+                let powm1 = pow / 10;
+                loop {
+                    let vp_d = vp / pow;
+                    let vm_d = vm / pow;
+                    if vp_d <= vm_d {
+                        break;
+                    }
+                    let vr_d = vr / pow;
+                    vm_is_trailing_zeros &= vm - pow * vm_d == 0;
+                    vr_is_trailing_zeros &= last_removed_digit == 0 && vr % powm1 == 0;
+                    last_removed_digit = ((vr / powm1) % 10) as u8;
+                    vr = vr_d;
+                    vp = vp_d;
+                    vm = vm_d;
+                    removed += digits as i32;
+                }
+            }
+        };
+        remove_chunk(8);
+        remove_chunk(4);
+        remove_chunk(2);
         loop {
             let vp_div10 = div10(vp);
             let vm_div10 = div10(vm);
@@ -233,6 +270,27 @@ pub fn d2d(ieee_mantissa: u64, ieee_exponent: u32) -> FloatingDecimal64 {
             removed += 1;
         }
         if vm_is_trailing_zeros {
+            // `d2d_loop1.spec` stops at the 10-adic valuation of vm; a k-chunk
+            // is licensed by the single test vm % 10^k == 0, with the same
+            // lrd / vrtz updates as the closed form gives.
+            let mut remove_trailing_chunk = {
+                #[inline(always)]
+                |digits: u32| {
+                    let pow = 10u64.pow(digits);
+                    let powm1 = pow / 10;
+                    while vm % pow == 0 {
+                        vr_is_trailing_zeros &= last_removed_digit == 0 && vr % powm1 == 0;
+                        last_removed_digit = ((vr / powm1) % 10) as u8;
+                        vr /= pow;
+                        vp /= pow;
+                        vm /= pow;
+                        removed += digits as i32;
+                    }
+                }
+            };
+            remove_trailing_chunk(8);
+            remove_trailing_chunk(4);
+            remove_trailing_chunk(2);
             loop {
                 let vm_div10 = div10(vm);
                 let vm_mod10 = (vm as u32).wrapping_sub(10u32.wrapping_mul(vm_div10 as u32));
@@ -271,6 +329,22 @@ pub fn d2d(ieee_mantissa: u64, ieee_exponent: u32) -> FloatingDecimal64 {
             vp = vp_div100;
             vm = vm_div100;
             removed += 2;
+        }
+        // Same chunked descent on the common path, from `d2d_loop4.spec`:
+        //     vr/10^k, vp/10^k, vm/10^k, removed + k,
+        //     round_up = (5 <= vr / 10^(k-1) % 10).
+        loop {
+            let vp_d = vp / 10000;
+            let vm_d = vm / 10000;
+            if vp_d <= vm_d {
+                break;
+            }
+            let vr_d = vr / 10000;
+            round_up = (vr / 1000) % 10 >= 5;
+            vr = vr_d;
+            vp = vp_d;
+            vm = vm_d;
+            removed += 4;
         }
         // Loop iterations below (approximately), without optimization above:
         // 0: 0.03%, 1: 13.8%, 2: 70.6%, 3: 14.0%, 4: 1.40%, 5: 0.14%, 6+: 0.02%

@@ -119,8 +119,7 @@ pub fn f2d(ieee_mantissa: u32, ieee_exponent: u32) -> FloatingDecimal32 {
                 // mp = mv + 2, so it always has at least one trailing 0 bit.
                 vp -= 1;
             }
-        } else if q < 31 {
-            // TODO(ulfjack): Use a tighter bound here.
+        } else if q < 27 {
             vr_is_trailing_zeros = multiple_of_power_of_2_32(mv, q - 1);
         }
     }
@@ -129,6 +128,38 @@ pub fn f2d(ieee_mantissa: u32, ieee_exponent: u32) -> FloatingDecimal32 {
     let mut removed = 0i32;
     let output = if vm_is_trailing_zeros || vr_is_trailing_zeros {
         // General case, which happens rarely (~4.0%).
+        // Chunked removal, licensed by `f2d_loop0.spec`, whose post-state is a
+        // function of the pre-state and the iteration count k:
+        //   vr/10^k, vp/10^k, vm/10^k,
+        //   vmtz && vm % 10^k == 0,
+        //   vrtz && AllZeroBelow(lrd, vr, k) = vrtz && lrd == 0 && vr % 10^(k-1) == 0,
+        //   lrd = LastDigit(lrd, vr, k) = vr / 10^(k-1) % 10,
+        //   removed + k.
+        // The per-step guard collapses to one test by monotonicity of
+        // floor(x/10^j). k <= 9 at binary32, so the descent is 4 then 2.
+        let mut remove_chunk = {
+            #[inline(always)]
+            |digits: u32| {
+                let pow = 10u32.pow(digits);
+                let powm1 = pow / 10;
+                loop {
+                    let vp_d = vp / pow;
+                    let vm_d = vm / pow;
+                    if vp_d <= vm_d {
+                        break;
+                    }
+                    vm_is_trailing_zeros &= vm % pow == 0;
+                    vr_is_trailing_zeros &= last_removed_digit == 0 && vr % powm1 == 0;
+                    last_removed_digit = ((vr / powm1) % 10) as u8;
+                    vr /= pow;
+                    vp = vp_d;
+                    vm = vm_d;
+                    removed += digits as i32;
+                }
+            }
+        };
+        remove_chunk(4);
+        remove_chunk(2);
         while vp / 10 > vm / 10 {
             vm_is_trailing_zeros &= vm - (vm / 10) * 10 == 0;
             vr_is_trailing_zeros &= last_removed_digit == 0;
@@ -139,6 +170,25 @@ pub fn f2d(ieee_mantissa: u32, ieee_exponent: u32) -> FloatingDecimal32 {
             removed += 1;
         }
         if vm_is_trailing_zeros {
+            // `f2d_loop1.spec` terminates at the 10-adic valuation of vm:
+            // vm % 10^k == 0 and vm/10^k % 10 != 0. A k-chunk is licensed by
+            // the single test vm % 10^k == 0, with the same lrd/vrtz updates.
+            let mut remove_trailing_chunk = {
+                #[inline(always)]
+                |digits: u32| {
+                    let pow = 10u32.pow(digits);
+                    let powm1 = pow / 10;
+                    while vm % pow == 0 {
+                        vr_is_trailing_zeros &= last_removed_digit == 0 && vr % powm1 == 0;
+                        last_removed_digit = ((vr / powm1) % 10) as u8;
+                        vr /= pow;
+                        vm /= pow;
+                        removed += digits as i32;
+                    }
+                }
+            };
+            remove_trailing_chunk(4);
+            remove_trailing_chunk(2);
             while vm % 10 == 0 {
                 vr_is_trailing_zeros &= last_removed_digit == 0;
                 last_removed_digit = (vr % 10) as u8;
